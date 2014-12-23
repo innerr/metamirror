@@ -1,0 +1,116 @@
+==>
+  (0) Concepts
+
+  Blob
+    Clocks
+      map<Hid:Version>
+    byte[]
+
+  Node
+    Hid
+    Domains = Domain[]
+      Domain
+        Session[]
+        Core
+          ICompose
+            commit() Blob
+            merge(Blob)
+          Box
+            map<Hid:Blob>
+          Persist
+            Blob[]
+        sync(Domain)
+      reg(name)
+    sync(Node)
+
+  user edit => ICompose.commit => Tree.grow  => IData.commit => Blob => Cabin
+                                                                     => sync.send
+
+  sync.receive => Blob, Clocks => Cabin
+                               => ICompose.merge => Tree.merge => if needed then IData.merge
+
+==>
+  (1) All structs
+
+  Node:
+    Hid
+    ICompose
+
+  ICompose: interface
+    IData
+    commit() Blob
+    merge(Blob)         # compose tree, choose branch => IData.merge
+
+  IData: interface
+    commit() byte[]     # marshal delta contents from last commition
+    merge(byte[])
+
+  Blobs:
+    Blob[]
+
+  Blob:
+    Clocks
+    byte[]
+
+  Clocks:
+    Map<Hid:Version>
+
+  Hid, Version:
+    Int
+
+==>
+  (2) Data editing
+
+  edit():
+    IData.Modify...
+    IData.Modify...
+    ...
+
+    byte[]            = IData.commit()
+    Clocks            = max Clocks in Cabin
+    Clocks[Node.Hid]  = 1 + max Hid in Clocks
+    Blobs            += Blob(Clocks, byte[])
+
+==>
+  (4) Sync calculating
+
+  compare(ClocksA, ClocksB):
+    if all A[Hid] <= B[Hid]   =>   A <= B
+    if all B[Hid] <= A[Hid]   =>   B <= A
+    else                      =>   conflicted
+
+  Node.Clocks:
+    for Clocks in Node.Cabin:
+        choose max Version for each Hid
+    => Clocks
+
+  NodeB - NodeA:
+    (B-A): Map<Hid:Blobs>
+    for Blob in B.Cabin:
+      if Blob.Clocks > A.Clocks then Blob => (B-A)
+
+  NodeA + (B-A):
+    for Branch in A.Cabin, Blob in (B-A):
+        if Blob.Clocks > Branch.Clocks:
+          Blob => Branch
+
+==>
+  (5) Syncing
+
+  NodeA  --- A.Clocks        --> NodeB
+  NodeA  <-- B.Clocks, (B-A) --- NodeB
+  NodeA'   = NodeA  +  (B-A)
+  NodeA' --- (A'-B)          --> NodeB
+                                 NodeB' = NodeB + (A'-B)
+
+  NodeA <-------- synced ------> NodeB
+
+==>
+  (6) Perfect world
+
+  Edit alone, and sync each other
+  {
+    NodeA
+    NodeB
+    ...
+  }
