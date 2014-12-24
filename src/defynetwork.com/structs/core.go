@@ -15,7 +15,12 @@ func (p *Core) Pack() (Delta, Clocks) {
 	p.lock.Lock()
 	defer p.lock.Unlock()
 	clocks := p.box.Max()
-	return Delta{p.data.Pack(clocks)}, clocks
+	blob := Blob{nil, nil}
+	data := p.data.Pack()
+	if len(data) != 0 {
+		blob = Blob{clocks, data}
+	}
+	return Delta{blob}, clocks
 }
 
 func (p *Core) Delta(clocks Clocks) (Delta, Clocks) {
@@ -35,7 +40,9 @@ func (p *Core) Merge(delta Delta) {
 	}
 	p.box.Merge(delta)
 	for _, blob := range delta {
-		p.data.Merge(blob)
+		if len(blob.Data) != 0 {
+			p.data.Merge(blob.Data)
+		}
 	}
 }
 
@@ -46,10 +53,11 @@ func (p *Core) Commit(hid uint64) Delta {
 	p.log.Debug("committing")
 
 	clocks := p.box.Edit(hid)
-	blob := p.data.Commit(clocks)
-	if blob.IsNil() {
+	data := p.data.Commit()
+	if len(data) == 0 {
 		return nil
 	}
+	blob := Blob{clocks, data}
 
 	p.persist.Dump(blob)
 	p.box.Add(blob, hid)
@@ -58,31 +66,35 @@ func (p *Core) Commit(hid uint64) Delta {
 	return Delta{blob}
 }
 
-func NewCore(log *tools.Log, data IData, persist IPersist, flags *CoreFlags) *Core {
+func (p *Core) load(blob Blob) {
+	p.box.Add(blob, blob.Vcs.Max())
+	if len(blob.Data) != 0 {
+		p.data.Merge(blob.Data)
+	}
+}
+
+func NewCore(data IData, persist IPersist, flags *CoreFlags, log *tools.Log) *Core {
 	if flags == nil {
 		flags = NewCoreFlags()
 	}
 	p := &Core{
-		log: log,
-		data: NewCompose(data),
+		data: data,
 		box: NewBox(),
 		persist: persist,
 		Flags: flags,
+		log: log,
 	}
-	p.persist.Load(func(blob Blob) {
-		p.box.Add(blob, blob.Vcs.Max())
-		p.data.Merge(blob)
-	})
+	p.persist.Load(p.load)
 	return p
 }
 
 type Core struct {
-	log *tools.Log
-	data *Compose
+	data IData
 	box *Box
 	persist IPersist
 	Flags *CoreFlags
 	lock sync.Mutex
+	log *tools.Log
 }
 
 func NewCoreFlags() *CoreFlags {

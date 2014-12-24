@@ -12,7 +12,7 @@
       Domain = Session[]
         Session
           Core
-            ICompose
+            IData
               commit() Blob
               merge(Blob)
             Box
@@ -23,23 +23,18 @@
       reg(name)
     sync(Node)
 
-  user edit => ICompose.commit => Tree.grow  => IData.commit => Blob => Cabin
+  user edit => IData.commit => Tree.grow  => IData.commit => Blob => Cabin
                                                                      => sync.send
 
   sync.receive => Blob, Clocks => Cabin
-                               => ICompose.merge => Tree.merge => if needed then IData.merge
+                               => IData.merge => Tree.merge => if needed then IData.merge
 
 ==>
   (1) All structs
 
   Node:
     Hid
-    ICompose
-
-  ICompose: interface
     IData
-    commit() Blob
-    merge(Blob)         # compose tree, choose branch => IData.merge
 
   IData: interface
     commit() byte[]     # marshal delta contents from last commition

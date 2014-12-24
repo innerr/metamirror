@@ -84,3 +84,6 @@ func TestBox(t *testing.T) {
 	check(d, delta(b1, b2, b3))
 }
 
+func TestBoxBenchmark(t *testing.T) {
+	// TODO: box benchmark
+}

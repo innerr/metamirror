@@ -1,25 +1,14 @@
 package structs
 
-import "sort"
+import (
+	"sort"
+)
 
 func (p *Box) Delta(clocks Clocks) Delta {
 	delta := Delta{}
 	for hid, blobs := range p.blobs {
-		a := clocks[hid]
-		i := sort.Search(len(blobs), func(i int) bool {
-			b := blobs[i]
-			if b.Vcs[hid] >= a {
-				c := b.Vcs.Compare(clocks)
-				if c == Greater || c == Conflicted {
-					return true
-				}
-			}
-			return false
-		})
-		if i >= len(blobs) {
-			continue
-		}
-		delta = append(delta, blobs[i:]...)
+		finder := _NewBlobsFinder(hid, clocks, blobs)
+		delta = append(delta, finder.Delta()...)
 	}
 	return delta
 }
@@ -56,4 +45,34 @@ func NewBox() *Box {
 type Box struct {
 	blobs BlobMap
 	max Clocks
+}
+
+type _BlobsFinder struct {
+	hid uint64
+	clocks Clocks
+	blobs Blobs
+	ver uint32
+}
+
+func _NewBlobsFinder(hid uint64, clocks Clocks, blobs Blobs) _BlobsFinder {
+	return _BlobsFinder{hid, clocks, blobs, clocks[hid]}
+}
+
+func (p _BlobsFinder) Delta() Blobs {
+	i := sort.Search(len(p.blobs), p.finder)
+	if i >= len(p.blobs) {
+		return nil
+	}
+	return p.blobs[i:]
+}
+
+func (p _BlobsFinder) finder(i int) bool {
+	blob := p.blobs[i]
+	if blob.Vcs[p.hid] >= p.ver {
+		c := blob.Vcs.Compare(p.clocks)
+		if c == Greater || c == Conflicted {
+			return true
+		}
+	}
+	return false
 }

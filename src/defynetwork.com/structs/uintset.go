@@ -42,22 +42,22 @@ func (p *UintSet) Equal(x *UintSet) bool {
 
 func (p *UintSet) Pack() []byte {
 	buf := new(bytes.Buffer)
-	tools.Dump(buf, uint16(len(p.vals)))
+	tools.Dump(buf, uint32(len(p.vals)))
 	for it, _ := range p.vals {
 		tools.Dump(buf, it)
 	}
-	tools.Dump(buf, uint16(0))
+	tools.Dump(buf, uint32(0))
 	return buf.Bytes()
 }
 
 func (p *UintSet) Commit() []byte {
 	buf := new(bytes.Buffer)
-	tools.Dump(buf, uint16(len(p.adds)))
+	tools.Dump(buf, uint32(len(p.adds)))
 	for _, it := range p.adds {
 		tools.Dump(buf, it)
 	}
 	p.adds = nil
-	tools.Dump(buf, uint16(len(p.dels)))
+	tools.Dump(buf, uint32(len(p.dels)))
 	for _, it := range p.dels {
 		tools.Dump(buf, it)
 	}
@@ -67,13 +67,13 @@ func (p *UintSet) Commit() []byte {
 
 func (p *UintSet) Merge(delta []byte) {
 	r := bytes.NewReader(delta)
-	ac := tools.Loadu16(r)
-	for i := uint16(0); i < ac; i ++ {
+	ac := tools.Loadu32(r)
+	for i := uint32(0); i < ac; i ++ {
 		val := tools.Loadu32(r)
 		p.vals[val] = true
 	}
-	dc := tools.Loadu16(r)
-	for i := uint16(0); i < dc; i ++ {
+	dc := tools.Loadu32(r)
+	for i := uint32(0); i < dc; i ++ {
 		val := tools.Loadu32(r)
 		delete(p.vals, val)
 	}

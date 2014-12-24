@@ -1,3 +1,3 @@
 package structs
 
-// TODO
+// TODO: test flags

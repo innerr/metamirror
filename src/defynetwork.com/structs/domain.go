@@ -48,19 +48,19 @@ func (p *Domain) sendDelta(from IChannel, hid uint64, delta Delta) {
 	}
 }
 
-func NewDomain(log *tools.Log, data IData, persist IPersist, flags *CoreFlags) *Domain {
+func NewDomain(data IData, persist IPersist, flags *CoreFlags, log *tools.Log) *Domain {
 	p := &Domain{
-		log: log,
-		core: NewCore(log.Mod("core"), data, persist, flags),
+		core: NewCore(data, persist, flags, log.Mod("core")),
 		conns: NewDomainConns(),
+		log: log,
 	}
 	return p
 }
 
 type Domain struct {
-	log *tools.Log
 	core *Core
 	conns *DomainConns
+	log *tools.Log
 }
 
 func (p *DomainConns) Data() map[IChannel]*Session {
@@ -74,11 +74,14 @@ func (p *DomainConns) Data() map[IChannel]*Session {
 }
 
 func (p *DomainConns) Add(ch IChannel, core *Core, frecv func(IChannel, uint64, Delta), log *tools.Log) *Session {
+	p.lock.Lock()
+	defer p.lock.Unlock()
+
 	session := p.data[ch]
 	if session != nil {
 		return nil
 	}
-	session = NewSession(log.Mod("session"), core, ch, frecv)
+	session = NewSession(core, ch, frecv, log.Mod("session"))
 	p.data[ch] = session
 	return session
 }

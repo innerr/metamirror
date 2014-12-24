@@ -31,3 +31,7 @@ func TestMemPersist(t *testing.T) {
 	})
 	tools.Check(a, b)
 }
+
+func TestPersistBenchmark(t *testing.T) {
+	// TODO: persist benchmark
+}

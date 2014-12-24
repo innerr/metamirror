@@ -1,6 +1,8 @@
 package structs
 
-import "io"
+import (
+	"io"
+)
 
 func (p *DumbPersist) Load(fun func(blob Blob)) {
 }
@@ -29,6 +31,8 @@ func (p *Persist) Load(fun func(blob Blob)) {
 }
 
 func (p *Persist) Dump(blob Blob) {
+	// TODO: crc32
+
 	if p.file == nil {
 		return
 	}

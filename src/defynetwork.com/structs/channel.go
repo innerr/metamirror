@@ -1,6 +1,8 @@
 package structs
 
-import "io"
+import (
+	"io"
+)
 
 func (p *AsynChannel) Close() {
 	close(p.tasks)

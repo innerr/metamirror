@@ -7,8 +7,8 @@ import (
 )
 
 func (p Clocks) Load(r io.Reader) {
-	c := tools.Loadu16(r)
-	for i := uint16(0); i < c; i++ {
+	c := tools.Loadu32(r)
+	for i := uint32(0); i < c; i++ {
 		k := tools.Loadu64(r)
 		v := tools.Loadu32(r)
 		p[k] = v
@@ -16,7 +16,7 @@ func (p Clocks) Load(r io.Reader) {
 }
 
 func (p Clocks) Dump(w io.Writer) {
-	tools.Dump(w, uint16(len(p)))
+	tools.Dump(w, uint32(len(p)))
 	for k, v := range p {
 		tools.Dump(w, k)
 		tools.Dump(w, v)

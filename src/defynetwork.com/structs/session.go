@@ -164,13 +164,13 @@ func (p *Session) Close() {
 	p.rpc.Close()
 }
 
-func NewSession(log *tools.Log, core *Core, ch IChannel, frecv func(IChannel, uint64, Delta)) *Session {
+func NewSession(core *Core, ch IChannel, frecv func(IChannel, uint64, Delta), log *tools.Log) *Session {
 	p := &Session{
-		log: log,
 		core: core,
 		ch: ch,
 		rpc: NewRpc(ch),
 		frecv: frecv,
+		log: log,
 	}
 
 	p.rpc.Func(_SyncDelta).Receive(p.recvDelta)
@@ -186,7 +186,6 @@ func NewSession(log *tools.Log, core *Core, ch IChannel, frecv func(IChannel, ui
 }
 
 type Session struct {
-	log *tools.Log
 	core *Core
 	ch IChannel
 	rpc *Rpc
@@ -195,6 +194,7 @@ type Session struct {
 	received []Delta
 	frecv func(IChannel, uint64, Delta)
 	lock sync.Mutex
+	log *tools.Log
 }
 
 const (

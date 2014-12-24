@@ -7,8 +7,8 @@ import (
 
 func (p *Blob) Load(r io.Reader) {
 	p.Vcs.Load(r)
-	c := tools.Loadu16(r)
-	if c == uint16(0) {
+	c := tools.Loadu32(r)
+	if c == uint32(0) {
 		return
 	}
 	p.Data = make([]byte, c)
@@ -20,7 +20,7 @@ func (p *Blob) Load(r io.Reader) {
 
 func (p Blob) Dump(w io.Writer) {
 	p.Vcs.Dump(w)
-	tools.Dump(w, uint16(len(p.Data)))
+	tools.Dump(w, uint32(len(p.Data)))
 	_, err := w.Write(p.Data)
 	if err != nil {
 		panic(err)

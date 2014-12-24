@@ -1,6 +1,8 @@
 package structs
 
-import "io"
+import (
+	"io"
+)
 
 func (p *BiChannel) Close() {
 	p.A.Close()

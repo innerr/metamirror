@@ -24,8 +24,8 @@ func TestBiChannel(t *testing.T) {
 	})
 
 	as := []byte("send from a")
-	bs := []byte("send from b, test")
 	c.A.Send(bytes.NewReader(as), uint32(len(as)))
+	bs := []byte("send from b, test")
 	c.B.Send(bytes.NewReader(bs), uint32(len(bs)))
 	c.Close()
 
