@@ -11,10 +11,10 @@ func (p *Compose) Pack(clocks Clocks) Blob {
 
 	data := p.def.Pack()
 	if data == nil {
-		tools.Dump(w, uint16(0))
+		tools.Dump(w, _NilDefData)
 	} else {
 		modified = true
-		tools.Dump(w, uint16(1))
+		tools.Dump(w, _HasDefData)
 		tools.Dumpd(w, data)
 	}
 
@@ -40,10 +40,10 @@ func (p *Compose) Commit(clocks Clocks) Blob {
 
 	data := p.def.Commit()
 	if data == nil {
-		tools.Dump(w, uint16(0))
+		tools.Dump(w, _NilDefData)
 	} else {
 		modified = true
-		tools.Dump(w, uint16(1))
+		tools.Dump(w, _HasDefData)
 		tools.Dumpd(w, data)
 	}
 
@@ -67,10 +67,10 @@ func (p *Compose) Merge(blob Blob) {
 	r := bytes.NewReader(blob.Data)
 
 	flag := tools.Loadu16(r)
-	if flag == uint16(1) {
+	if flag == _HasDefData {
 		data := tools.Loadd(r)
 		p.def.Merge(data)
-	} else if flag != 0 {
+	} else if flag != _NilDefData {
 		panic("wrong compose flag")
 	}
 
@@ -105,3 +105,7 @@ type Compose struct {
 	named map[string]IData
 }
 
+const (
+	_NilDefData = uint16(0)
+	_HasDefData = uint16(1)
+)

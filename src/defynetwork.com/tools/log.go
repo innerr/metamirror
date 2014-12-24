@@ -34,11 +34,19 @@ func (p *Log) Close() {
 func (p *Log) write(debug int, msg ...interface{}) {
 	p.lock.Lock()
 	defer p.lock.Unlock()
-	mod := " "
-	if p.mod != "" {
-		mod += "[" + p.mod + "] "
+
+	if p.prefix == "" && (p.mod != "" || p.name != "") {
+		p.prefix = p.mod
+		if p.prefix == "" {
+			p.prefix = "*"
+		}
+		if p.name != "" {
+			p.prefix += "." + p.name
+		}
+		p.prefix = "[" + p.prefix + "]"
 	}
-	line := time.Now().Format("2006/01/02 15:04:05") + " " + fmt.Sprint(debug) + mod + fmt.Sprint(msg...)
+
+	line := time.Now().Format("2006/01/02 15:04:05") + " " + fmt.Sprint(debug) + p.prefix + " " + fmt.Sprint(msg...)
 	if p.screen {
 		println(line)
 	}
@@ -49,7 +57,11 @@ func (p *Log) write(debug int, msg ...interface{}) {
 }
 
 func (p *Log) Mod(mod string) *Log {
-	return &Log{p.file, mod, p.screen, p.debug, sync.Mutex{}}
+	return &Log{p.file, mod, p.name, "", p.screen, p.debug, sync.Mutex{}}
+}
+
+func (p *Log) Name(name string) *Log {
+	return &Log{p.file, p.mod, name, "", p.screen, p.debug, sync.Mutex{}}
 }
 
 func NewLog(path string, screen bool, debug int) *Log {
@@ -68,12 +80,14 @@ func NewLog(path string, screen bool, debug int) *Log {
 			file.Truncate(0)
 		}
 	}
-	return &Log{file, "", screen, debug, sync.Mutex{}}
+	return &Log{file, "", "", "", screen, debug, sync.Mutex{}}
 }
 
 type Log struct {
 	file *os.File
 	mod string
+	name string
+	prefix string
 	screen bool
 	debug int
 	lock sync.Mutex

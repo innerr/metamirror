@@ -2,36 +2,51 @@ package structs
 
 import "io"
 
-func NewBiChannel() *BiChannel {
-	p := &BiChannel{&MemChannel{}, &MemChannel{}}
-	p.A.fsend = func(r io.Reader, n uint32) {
-		p.B.freceive(r, n)
+func (p *AsynChannel) Close() {
+	close(p.tasks)
+	<-p.done
+	p.origin.Close()
+}
+
+func (p *AsynChannel) Send(r io.Reader, n uint32) {
+	p.tasks <-AsynChannelTask{r, n}
+}
+
+func (p *AsynChannel) Receive(fun Transport) {
+	p.origin.Receive(fun)
+}
+
+func (p *AsynChannel) run() {
+	for task := range p.tasks {
+		p.origin.Send(task.r, task.n)
 	}
-	p.B.fsend = func(r io.Reader, n uint32) {
-		p.A.freceive(r, n)
+	p.done <-true
+}
+
+func NewAsynChannel(origin IChannel, backlog int) *AsynChannel {
+	if backlog <= 0 {
+		backlog = 1024
 	}
+	p := &AsynChannel{origin, make(chan AsynChannelTask, backlog), make(chan bool)}
+	go p.run()
 	return p
 }
 
-type BiChannel struct {
-	A *MemChannel
-	B *MemChannel
+type AsynChannel struct {
+	origin IChannel
+	tasks chan AsynChannelTask
+	done chan bool
 }
 
-func (p *MemChannel) Send(r io.Reader, n uint32) {
-	p.fsend(r, n)
-}
-
-func (p *MemChannel) Receive(fun func(io.Reader, uint32)) {
-	p.freceive = fun
-}
-
-type MemChannel struct {
-	fsend func(io.Reader, uint32)
-	freceive func(io.Reader, uint32)
+type AsynChannelTask struct {
+	r io.Reader
+	n uint32
 }
 
 type IChannel interface {
 	Send(io.Reader, uint32)
-	Receive(func(io.Reader, uint32))
+	Receive(Transport)
+	Close()
 }
+
+type Transport func(io.Reader, uint32)

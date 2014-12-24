@@ -89,6 +89,10 @@ func Loadb(r io.Reader) bool {
 	return n == 1
 }
 
+func DumpsSize(s string) int {
+	return len(s) + 2
+}
+
 func Dumps(w io.Writer, s string) {
 	d := []byte(s)
 	Dump(w, uint16(len(d)))

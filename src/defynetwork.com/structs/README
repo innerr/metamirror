@@ -9,16 +9,16 @@
   Node
     Hid
     Domains = Domain[]
-      Domain
-        Session[]
-        Core
-          ICompose
-            commit() Blob
-            merge(Blob)
-          Box
-            map<Hid:Blob>
-          Persist
-            Blob[]
+      Domain = Session[]
+        Session
+          Core
+            ICompose
+              commit() Blob
+              merge(Blob)
+            Box
+              map<Hid:Blob>
+            Persist
+              Blob[]
         sync(Domain)
       reg(name)
     sync(Node)
