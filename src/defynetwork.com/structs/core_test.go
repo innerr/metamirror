@@ -39,22 +39,16 @@ func TestCorePersist(t *testing.T) {
 	log := tools.NewLog("", false, tools.LogLvlNone)
 
 	s1 := NewUintSet()
-	f1, err := os.OpenFile(path, os.O_RDWR | os.O_CREATE | os.O_SYNC, 0640)
-	if err != nil {
-		t.Fatal(err)
-	}
-	p1 := NewPersist(f1)
+	p1 := NewPersistWithPath(path, log)
+	defer p1.Close()
 	c := NewCore(s1, p1, nil, log)
 	s1.Set(4)
 	s1.Set(10)
 	c.Commit(69)
 
 	s2 := NewUintSet()
-	f2, err := os.OpenFile(path, os.O_RDWR | os.O_CREATE | os.O_SYNC, 0640)
-	if err != nil {
-		t.Fatal(err)
-	}
-	p2 := NewPersist(f2)
+	p2 := NewPersistWithPath(path, log)
+	defer p2.Close()
 	c = NewCore(s2, p2, nil, log)
 	if !s1.Equal(s2) {
 		t.Fatal("a != b")

@@ -23,10 +23,10 @@
       reg(name)
     sync(Node)
 
-  user edit => IData.commit => Tree.grow  => IData.commit => Blob => Cabin
+  user edit => IData.commit => Tree.grow  => IData.commit => Blob => Box
                                                                      => sync.send
 
-  sync.receive => Blob, Clocks => Cabin
+  sync.receive => Blob, Clocks => Box
                                => IData.merge => Tree.merge => if needed then IData.merge
 
 ==>
@@ -62,7 +62,7 @@
     ...
 
     byte[]            = IData.commit()
-    Clocks            = max Clocks in Cabin
+    Clocks            = max Clocks in Box
     Clocks[Node.Hid]  = 1 + max Hid in Clocks
     Blobs            += Blob(Clocks, byte[])
 
@@ -75,17 +75,17 @@
     else                      =>   conflicted
 
   Node.Clocks:
-    for Clocks in Node.Cabin:
+    for Clocks in Node.Box:
         choose max Version for each Hid
     => Clocks
 
   NodeB - NodeA:
     (B-A): Map<Hid:Blobs>
-    for Blob in B.Cabin:
+    for Blob in B.Box:
       if Blob.Clocks > A.Clocks then Blob => (B-A)
 
   NodeA + (B-A):
-    for Branch in A.Cabin, Blob in (B-A):
+    for Branch in A.Box, Blob in (B-A):
         if Blob.Clocks > Branch.Clocks:
           Blob => Branch
 

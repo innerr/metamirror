@@ -5,13 +5,14 @@ import (
 	"defynetwork.com/tools"
 )
 
-func (p *UintSet) Set(val uint32) {
+func (p *UintSet) Set(val uint32) *UintSet {
 	_, ok := p.vals[val]
 	if ok {
-		return
+		return p
 	}
 	p.vals[val] = true
 	p.adds = append(p.adds, val)
+	return p
 }
 
 func (p *UintSet) Del(val uint32) {

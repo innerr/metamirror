@@ -1,13 +1,19 @@
 package structs
 
 import (
-	"bytes"
+	"os"
 	"testing"
 	"defynetwork.com/tools"
 )
 
-func TestMemPersist(t *testing.T) {
-	p := NewPersist(new(bytes.Buffer))
+func TestPersist(t *testing.T) {
+	path := "persist.test"
+	defer os.Remove(path)
+
+	log := tools.NewLog("", false, tools.LogLvlNone)
+
+	p1 := NewPersistWithPath(path, log)
+	defer p1.Close()
 	a := Blobs {
 		Blob {
 			Clocks{11: 2, 22: 4},
@@ -23,10 +29,13 @@ func TestMemPersist(t *testing.T) {
 		},
 	}
 	for _, it := range a {
-		p.Dump(it)
+		p1.Dump(it)
 	}
+
 	b := Blobs{}
-	p.Load(func(blob Blob) {
+	p2 := NewPersistWithPath(path, log)
+	defer p2.Close()
+	p2.Load(func(blob Blob) {
 		b = append(b, blob)
 	})
 	tools.Check(a, b)

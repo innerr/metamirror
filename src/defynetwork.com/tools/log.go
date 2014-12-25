@@ -8,21 +8,23 @@ import (
 )
 
 func (p *Log) Detail(msg ...interface{}) {
-	if p.debug <= LogLvlDetail {
-		p.write(LogLvlDetail, msg...)
-	}
+	p.write(LogLvlDetail, msg...)
 }
 
 func (p *Log) Debug(msg ...interface{}) {
-	if p.debug <= LogLvlDebug {
-		p.write(LogLvlDebug, msg...)
-	}
+	p.write(LogLvlDebug, msg...)
 }
 
-func (p *Log) Msg(msg ...interface{}) {
-	if p.debug <= LogLvlNormal {
-		p.write(LogLvlNormal, msg...)
-	}
+func (p *Log) Info(msg ...interface{}) {
+	p.write(LogLvlInfo, msg...)
+}
+
+func (p *Log) Warn(msg ...interface{}) {
+	p.write(LogLvlWarn, msg...)
+}
+
+func (p *Log) Error(msg ...interface{}) {
+	p.write(LogLvlError, msg...)
 }
 
 func (p *Log) Close() {
@@ -32,6 +34,10 @@ func (p *Log) Close() {
 }
 
 func (p *Log) write(debug int, msg ...interface{}) {
+	if p.debug > debug {
+		return
+	}
+
 	p.lock.Lock()
 	defer p.lock.Unlock()
 
@@ -43,10 +49,10 @@ func (p *Log) write(debug int, msg ...interface{}) {
 		if p.name != "" {
 			p.prefix += "." + p.name
 		}
-		p.prefix = "[" + p.prefix + "]"
+		p.prefix = " [" + p.prefix + "] "
 	}
 
-	line := time.Now().Format("2006/01/02 15:04:05") + " " + fmt.Sprint(debug) + p.prefix + " " + fmt.Sprint(msg...)
+	line := time.Now().Format("2006/01/02 15:04:05") + " " + fmt.Sprint(debug) + p.prefix + fmt.Sprint(msg...)
 	if p.screen {
 		println(line)
 	}
@@ -96,6 +102,8 @@ type Log struct {
 const (
 	LogLvlDetail = 0
 	LogLvlDebug = 1
-	LogLvlNormal = 2
-	LogLvlNone = 3
+	LogLvlInfo = 2
+	LogLvlWarn = 3
+	LogLvlError = 4
+	LogLvlNone = 10
 )

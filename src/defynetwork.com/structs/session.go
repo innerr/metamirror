@@ -8,68 +8,81 @@ import (
 )
 
 func (p *Session) Sync() {
-	if p.core.Flags.In {
-		p.cliSendSyncReq()
-	} else {
-		p.cliSendRoReq()
-	}
+	p.cliSendSyncReq()
 }
 
 func (p *Session) cliSendSyncReq() {
-	p.log.Debug("sync")
 	buf := new(bytes.Buffer)
 	p.core.Clocks().Dump(buf)
+	tools.Dumpb(buf, p.core.Flags.In)
 	tools.Dumpb(buf, p.core.Flags.Integral)
 	data := buf.Bytes()
-	p.rpc.Func(_SyncReq).Send(bytes.NewReader(data), uint32(len(data)))
+	p.log.Debug("req")
+	p.rpc.Func(_SyncRequest).Send(bytes.NewReader(data), uint32(len(data)))
 }
 
 func (p *Session) svrRecvSyncReq(r io.Reader, n uint32) {
-	if !p.core.Flags.Out || p.blocked {
-		p.svrSendRoResp()
-		return
-	}
-
-	c := Clocks{}
-	c.Load(r)
+	clocks := Clocks{}
+	clocks.Load(r)
+	p.blocked = !tools.Loadb(r)
 	integral := tools.Loadb(r)
-	var delta Delta
-	var clocks Clocks
 	if integral {
-		p.log.Debug("syncreq recv: integral")
-		delta, clocks = p.core.Pack()
+		p.log.Debug("req recv: integral")
 	} else {
-		p.log.Debug("syncreq recv")
-		delta, clocks = p.core.Delta(c)
+		p.log.Debug("req recv")
 	}
-	p.svrSendSyncResp(delta, clocks)
+	p.svrSendSyncResp(integral, clocks)
 }
 
-func (p *Session) svrSendSyncResp(delta Delta, clocks Clocks) {
+func (p *Session) svrSendSyncResp(integral bool, remote Clocks) {
 	buf := new(bytes.Buffer)
-	clocks.Dump(buf)
-	delta.Dump(buf)
+	tools.Dumpb(buf, p.core.Flags.In)
+
+	if p.core.Flags.Out && !p.blocked {
+		var delta Delta
+		var clocks Clocks
+		if integral {
+			delta, clocks = p.core.Pack()
+		} else {
+			delta, clocks = p.core.Delta(remote)
+		}
+		clocks.Dump(buf)
+		delta.Dump(buf)
+		p.log.Debug("resp")
+	} else {
+		p.log.Debug("resp: !out|!cli.in")
+	}
+
 	data := buf.Bytes()
-	p.log.Debug("syncresp")
-	p.rpc.Func(_SyncResp).Send(bytes.NewReader(data), uint32(len(data)))
-	p.synced = true
+	p.rpc.Func(_SyncResponse).Send(bytes.NewReader(data), uint32(len(data)))
+	p.setSended()
 }
 
 func (p *Session) cliRecvSyncResp(r io.Reader, n uint32) {
-	p.log.Debug("syncresp recv")
-	c := Clocks{}
-	c.Load(r)
-	d := Delta{}
-	d.Load(r)
-	p.core.Merge(d)
-	delta, _ := p.core.Delta(c)
-	p.cliSendComplete(delta)
+	p.log.Debug("resp recv")
+	p.blocked = !tools.Loadb(r)
+
+	if n > tools.DumpbSize {
+		clocks := Clocks{}
+		clocks.Load(r)
+		delta := Delta{}
+		delta.Load(r)
+		p.core.Merge(delta)
+		p.cliSendComplete(clocks)
+	} else {
+		p.cliSendComplete(nil)
+	}
 }
 
-func (p *Session) cliSendComplete(delta Delta) {
+func (p *Session) cliSendComplete(remote Clocks) {
+	delta, _ := p.core.Delta(remote)
+
 	if !p.core.Flags.Out || p.blocked {
+		p.log.Debug("complete: !out|!cli.in")
+		p.rpc.Func(_SyncComplete).Send(bytes.NewReader([]byte{}), 0)
 		return
 	}
+
 	buf := new(bytes.Buffer)
 	delta.Dump(buf)
 	data := buf.Bytes()
@@ -78,42 +91,29 @@ func (p *Session) cliSendComplete(delta Delta) {
 		p.rpc.Func(_SyncComplete).Send(bytes.NewReader(data), uint32(len(data)))
 	} else {
 		p.log.Debug("complete: skip")
+		p.rpc.Func(_SyncComplete).Send(bytes.NewReader([]byte{}), 0)
 	}
-	p.synced = true
+	p.setSended()
 }
 
 func (p *Session) svrRecvComplete(r io.Reader, n uint32) {
 	p.log.Debug("complete recv")
-	d := Delta{}
-	d.Load(r)
-	p.core.Merge(d)
+	if n != 0 {
+		d := Delta{}
+		d.Load(r)
+		p.core.Merge(d)
+	}
+	p.setSynced()
+	p.svrSendConfirm()
 }
 
-func (p *Session) cliSendRoReq() {
-	p.log.Debug("roreq")
-	p.rpc.Func(_SyncRoReq).Send(bytes.NewReader([]byte{}), 0)
+func (p *Session) svrSendConfirm() {
+	p.log.Debug("confirm")
+	p.rpc.Func(_SyncConfirm).Send(bytes.NewReader([]byte{}), 0)
 }
 
-func (p *Session) svrRecvRoReq(r io.Reader, n uint32) {
-	p.log.Debug("roreq recv")
-	p.blocked = true
-	p.svrSendRoResp()
-}
-
-func (p *Session) svrSendRoResp() {
-	buf := new(bytes.Buffer)
-	p.core.Clocks().Dump(buf)
-	data := buf.Bytes()
-	p.log.Debug("roresp")
-	p.rpc.Func(_SyncRoResp).Send(bytes.NewReader(data), uint32(len(data)))
-}
-
-func (p *Session) cliRecvRoResp(r io.Reader, n uint32) {
-	p.log.Debug("roresp recv")
-	c := Clocks{}
-	c.Load(r)
-	delta, _ := p.core.Delta(c)
-	p.cliSendComplete(delta)
+func (p *Session) cliRecvConfirm(r io.Reader, n uint32) {
+	p.setSynced()
 }
 
 func (p *Session) SendDelta(hid uint64, delta Delta) {
@@ -164,23 +164,38 @@ func (p *Session) Close() {
 	p.rpc.Close()
 }
 
-func NewSession(core *Core, ch IChannel, frecv func(IChannel, uint64, Delta), log *tools.Log) *Session {
+func (p *Session) setSended() {
+	p.log.Debug("sended")
+	p.sended = true
+	if !p.core.Flags.In {
+		p.setSynced()
+	}
+}
+
+func (p *Session) setSynced() {
+	p.log.Debug("synced")
+	p.synced = true
+	if p.fsynced != nil {
+		p.fsynced()
+	}
+}
+
+func NewSession(core *Core, ch IChannel, frecv RecvDeltaFunc, fsynced FullSyncedFunc, log *tools.Log) *Session {
 	p := &Session{
 		core: core,
 		ch: ch,
 		rpc: NewRpc(ch),
 		frecv: frecv,
+		fsynced: fsynced,
 		log: log,
 	}
 
 	p.rpc.Func(_SyncDelta).Receive(p.recvDelta)
 
-	p.rpc.Func(_SyncReq).Receive(p.svrRecvSyncReq)
-	p.rpc.Func(_SyncResp).Receive(p.cliRecvSyncResp)
+	p.rpc.Func(_SyncRequest).Receive(p.svrRecvSyncReq)
+	p.rpc.Func(_SyncResponse).Receive(p.cliRecvSyncResp)
 	p.rpc.Func(_SyncComplete).Receive(p.svrRecvComplete)
-
-	p.rpc.Func(_SyncRoReq).Receive(p.svrRecvRoReq)
-	p.rpc.Func(_SyncRoResp).Receive(p.cliRecvRoResp)
+	p.rpc.Func(_SyncConfirm).Receive(p.cliRecvConfirm)
 
 	return p
 }
@@ -189,19 +204,23 @@ type Session struct {
 	core *Core
 	ch IChannel
 	rpc *Rpc
+	sended bool
 	synced bool
 	blocked bool
 	received []Delta
-	frecv func(IChannel, uint64, Delta)
+	frecv RecvDeltaFunc
+	fsynced FullSyncedFunc
 	lock sync.Mutex
 	log *tools.Log
 }
 
 const (
 	_SyncDelta = "delta"
-	_SyncReq = "syncreq"
-	_SyncResp = "syncresp"
+	_SyncRequest = "request"
+	_SyncResponse = "response"
 	_SyncComplete = "complete"
-	_SyncRoReq = "roreq"
-	_SyncRoResp = "roresp"
+	_SyncConfirm = "confirm"
 )
+
+type FullSyncedFunc func()
+type RecvDeltaFunc func(IChannel, uint64, Delta)

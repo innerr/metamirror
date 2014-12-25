@@ -6,7 +6,10 @@ import (
 )
 
 func (p *Domain) Bind(ch IChannel, passive bool) bool {
-	session := p.conns.Add(ch, p.core, p.recvDelta, p.log)
+	creater := func() *Session {
+		return NewSession(p.core, ch, p.recvDelta, nil, p.log.Mod("session"))
+	}
+	session := p.conns.Add(ch, creater)
 	if session == nil {
 		return false
 	}
@@ -73,16 +76,14 @@ func (p *DomainConns) Data() map[IChannel]*Session {
 	return conns
 }
 
-func (p *DomainConns) Add(ch IChannel, core *Core, frecv func(IChannel, uint64, Delta), log *tools.Log) *Session {
+func (p *DomainConns) Add(ch IChannel, creater func() *Session) *Session {
 	p.lock.Lock()
 	defer p.lock.Unlock()
-
 	session := p.data[ch]
 	if session != nil {
 		return nil
 	}
-	session = NewSession(core, ch, frecv, log.Mod("session"))
-	p.data[ch] = session
+	p.data[ch] = creater()
 	return session
 }
 

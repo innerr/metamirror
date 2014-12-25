@@ -75,6 +75,8 @@ func Loadd(r io.Reader) []byte {
 	return d
 }
 
+const DumpbSize = 2
+
 func Dumpb(w io.Writer, v bool) {
 	if v {
 		Dump(w, uint16(1))
