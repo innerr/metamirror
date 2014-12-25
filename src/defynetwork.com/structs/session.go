@@ -204,12 +204,12 @@ type Session struct {
 	core *Core
 	ch IChannel
 	rpc *Rpc
-	sended bool
-	synced bool
-	blocked bool
 	received []Delta
 	frecv RecvDeltaFunc
 	fsynced FullSyncedFunc
+	sended bool
+	synced bool
+	blocked bool
 	lock sync.Mutex
 	log *tools.Log
 }
